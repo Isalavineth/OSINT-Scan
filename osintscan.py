@@ -5,24 +5,20 @@ import socket
 import sys
 import os
 
+# ANSI color codes for terminal output styling
 class Color:
     RED = "\033[31m"
     RED_BRIGHT = "\033[91m"
     GREEN = "\033[32m"
     GREEN_BRIGHT = "\033[92m"
-    YELLOW = "\033[33m"
     YELLOW_BRIGHT = "\033[93m"
-    BLUE = "\033[34m"
     BLUE_BRIGHT = "\033[94m"
-    MAGENTA = "\033[35m"
-    MAGENTA_BRIGHT = "\033[95m"
-    CYAN = "\033[36m"
     CYAN_BRIGHT = "\033[96m"
     WHITE = "\033[97m"
     RESET = "\033[0m"
     BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
 
+# Validate if the input is a valid IP address
 async def is_ip(target):
     try:
         socket.inet_aton(target)
@@ -30,6 +26,7 @@ async def is_ip(target):
     except socket.error:
         return False
 
+# Fetches Geolocation data (Country, City, Coordinates, ect.) from ipwho.is
 async def geo_lookup(ip):
     url = f"https://ipwho.is/{ip}?fields=continent,continent_code,country,country_code,region,region_code,city,latitude,longitude,postal,calling_code,capital,borders"
     async with aiohttp.ClientSession() as session:
@@ -55,6 +52,7 @@ async def geo_lookup(ip):
 
         return "\n".join(output)
 
+# Fetches who is data (ISP, Organization, ASN)
 async def whois_lookup(ip):
     url = f"https://ipwho.is/{ip}?fields=ip,type,continent,country,region,connection,timezone"
     async with aiohttp.ClientSession() as session:
@@ -67,6 +65,7 @@ async def whois_lookup(ip):
             f"{Color.YELLOW_BRIGHT}Continent:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['continent']}{Color.RESET}",
             f"{Color.YELLOW_BRIGHT}Country:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['country']}{Color.RESET}",
             f"{Color.YELLOW_BRIGHT}Region:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['region']}{Color.RESET}",
+            f"{Color.YELLOW_BRIGHT}ASN:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['connection']['asn']}{Color.RESET}",
             f"{Color.YELLOW_BRIGHT}Org:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['connection']['org']}{Color.RESET}",
             f"{Color.YELLOW_BRIGHT}ISP:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['connection']['isp']}{Color.RESET}",
             f"{Color.YELLOW_BRIGHT}Domain:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['connection']['domain']}{Color.RESET}",
@@ -77,21 +76,9 @@ async def whois_lookup(ip):
 
         return "\n".join(output)
 
-async def connection_lookup(ip):
-    url = f"https://ipwho.is/{ip}?fields=connection"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            data = await resp.json()
-            output = [
-            f"{Color.CYAN_BRIGHT}{Color.BOLD}:: Connection lookup for {ip}{Color.RESET}",
-            f"{Color.YELLOW_BRIGHT}ASN:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['connection']['asn']}{Color.RESET}",
-            f"{Color.YELLOW_BRIGHT}Org:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['connection']['org']}{Color.RESET}",
-            f"{Color.YELLOW_BRIGHT}ISP:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['connection']['isp']}\n{Color.RESET}",
-            ""]
-
-        return "\n".join(output)
-
+# Queries AbuseIPDB for abuse scores
 async def abuseipdb_lookup(ip):
+    # Retrieve API KEY from environmental variables for security
     api_key = os.getenv("ABUSEIPDB_KEY")
     url = 'https://api.abuseipdb.com/api/v2/check'
 
@@ -108,6 +95,9 @@ async def abuseipdb_lookup(ip):
     async with aiohttp.ClientSession() as session:
         async with session.get(url=url, headers=headers, params=querystring) as resp:
             data = await resp.json()
+            # Handles cases where API request fails
+            if 'data' not in data:
+                return f"{Color.RED}:: AbuseIPDB Error: {data.get('errors', 'Unknown Error')}{Color.RESET}"
             output = [
             f"{Color.CYAN_BRIGHT}{Color.BOLD}:: AbuseIPDB lookup for {ip}{Color.RESET}",
             f"{Color.YELLOW_BRIGHT}Is public:{Color.RESET} {Color.WHITE}{Color.BOLD}{data['data']['isPublic']}{Color.RESET}",
@@ -127,8 +117,9 @@ async def abuseipdb_lookup(ip):
 
         return "\n".join(output)
 
-
+# Fetches DNS records (A, MX, NS, etc.)
 async def dns_lookup(domain):
+    # Skip if we only have an IP an dno resolved domain name
     if not domain:
         return f"{Color.RED}:: DNS Lookup skipped (Target is an IP with no resolvable domain){Color.RESET}"
     async with aiohttp.ClientSession() as session:
@@ -146,6 +137,7 @@ async def dns_lookup(domain):
 
             return "\n".join(output)
 
+# List of most common ports to scan
 common_ports = [
     21, 22, 23, 25, 53, 67, 68, 69, 80, 110, 111, 123, 135, 137, 138, 139,
     143, 161, 162, 389, 443, 445, 514, 515, 530, 548, 554, 587, 631, 636,
@@ -157,8 +149,9 @@ common_ports = [
     8080, 8081, 8123, 8181, 8443, 8531, 8888, 9000, 9090, 9200, 9300,
     9418, 10000, 11211, 27017, 27018, 27019]
 
+# Scans a single port with timeout
 async def scan_port(ip, port, timeout=1):
-
+    # Semaphore limits concurrent connections to avoid 'too mnay files' error
     sem = asyncio.Semaphore(200)
     async with sem:
         try:
@@ -170,9 +163,12 @@ async def scan_port(ip, port, timeout=1):
         except:
             return None
 
+# Manages the scanning of multiple port concurrently
 async def scan_common_port(ip):
     tasks = [scan_port(ip, port) for port in common_ports]
     open_ports = []
+
+    # Process results as they finish
     for coro in asyncio.as_completed(tasks):
         result = await coro
         if result:
@@ -209,12 +205,14 @@ async def main():
     parser.add_argument("-a", "--all", action="store_true",help="Run all available recon modules at once (geo, whois, DNS, port scan, connection data, AbuseIPDB)")
     args = parser.parse_args()
 
+    # Show help if no target is porvided
     if not args.target:
         print(ascii_banner)
         print(f"{Color.GREEN}Usage: python3 test.py <target> [flags]{Color.GREEN}")
         print(f"{Color.GREEN}Try: python3 test.py -h{Color.GREEN}")
         sys.exit(1)
 
+    # Default behavior (run basic scans)
     if not (args.geo or args.whois or args.dns or args.port or args.abuseIPDB or args.all):
         print(f"{Color.YELLOW}:: No flags provided. Running Basic Scan (Geo, DNS, WHOIS)...{Color.RESET}\n")
         args.geo = True
@@ -223,16 +221,18 @@ async def main():
 
     user_input = args.target
 
+    # Logic to seperate IP from domain for different lookup types
     if await is_ip(user_input):
         print(f"{Color.GREEN}Scanning {user_input}{Color.RESET}\n")
         target_ip = user_input
-
+        # Try to resolve IP to domain (reverse DNS) for DNS lookup
         try:
             target_domain = socket.gethostbyaddr(target_ip)[0]
             print(f"{Color.GREEN}Reverse DNS: Resolved {target_ip} to {target_domain}{Color.RESET}\n")
         except:
             target_domain = None
     else:
+        # Input is a domain, resolve to IP
         target_domain = user_input
         try:
             target_ip = socket.gethostbyname(target_domain)
@@ -241,10 +241,11 @@ async def main():
             print(f"{Color.RED}Invalid Domain.{Color.RESET}")
             sys.exit(1)
 
+    # If -a is used run everything
     if args.all:
-        results = await asyncio.gather(whois_lookup(target_ip), dns_lookup(target_domain), geo_lookup(target_ip), connection_lookup(target_ip), abuseipdb_lookup(target_ip), scan_common_port(target_ip))
+        results = await asyncio.gather(whois_lookup(target_ip), dns_lookup(target_domain), geo_lookup(target_ip), abuseipdb_lookup(target_ip), scan_common_port(target_ip))
         print("\n".join(results))
-
+    # Run individual modules based on flags
     if args.geo:
         print(await geo_lookup(target_ip))
 
