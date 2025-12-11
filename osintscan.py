@@ -241,26 +241,27 @@ async def main():
             print(f"{Color.RED}Invalid Domain.{Color.RESET}")
             sys.exit(1)
 
+    tasks = []
     # If -all is used run everything
-    if args.all:
-        results = await asyncio.gather(whois_lookup(target_ip), dns_lookup(target_domain), geo_lookup(target_ip), abuseipdb_lookup(target_ip), scan_common_port(target_ip))
+    if args.all or args.geo:
+        tasks.append(geo_lookup(target_ip))
+
+    if args.all or args.whois:
+        tasks.append(whois_lookup(target_ip))
+
+    if args.all or args.dns:
+        tasks.append(dns_lookup(target_domain))
+
+    if args.all or args.abuseIPDB:
+        tasks.append(abuseipdb_lookup(target_ip))
+
+    if args.all or args.port:
+        tasks.append(scan_common_port(target_ip))
+
+    # Execute all collected tasks concurrently
+    if tasks:
+        results = await asyncio.gather(*tasks)
         print("\n".join(results))
-    # Run individual modules based on flags
-    if args.geo:
-        print(await geo_lookup(target_ip))
-
-    if args.whois:
-        print(await whois_lookup(target_ip))
-
-    if args.dns:
-        print(await dns_lookup(target_domain))
-
-    if args.abuseIPDB:
-        print(await abuseipdb_lookup(target_ip))
-
-    if args.port:
-        print(await scan_common_port(target_ip))
-
 
 if __name__ == "__main__":
     asyncio.run(main())
