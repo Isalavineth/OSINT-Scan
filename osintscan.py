@@ -119,7 +119,7 @@ async def abuseipdb_lookup(ip):
 
 # Fetches DNS records (A, MX, NS, etc.)
 async def dns_lookup(domain):
-    # Skip if we only have an IP an dno resolved domain name
+    # Skip if we only have an IP and resolved domain name
     if not domain:
         return f"{Color.RED}:: DNS Lookup skipped (Target is an IP with no resolvable domain){Color.RESET}"
     async with aiohttp.ClientSession() as session:
@@ -151,7 +151,7 @@ common_ports = [
 
 # Scans a single port with timeout
 async def scan_port(ip, port, timeout=1):
-    # Semaphore limits concurrent connections to avoid 'too mnay files' error
+    # Semaphore limits concurrent connections to avoid 'too many files' error
     sem = asyncio.Semaphore(200)
     async with sem:
         try:
@@ -205,7 +205,7 @@ async def main():
     parser.add_argument("-a", "--all", action="store_true",help="Run all available recon modules at once (geo, whois, DNS, port scan, connection data, AbuseIPDB)")
     args = parser.parse_args()
 
-    # Show help if no target is porvided
+    # Show help if no target is provided
     if not args.target:
         print(ascii_banner)
         print(f"{Color.GREEN}Usage: python3 test.py <target> [flags]{Color.GREEN}")
@@ -214,14 +214,14 @@ async def main():
 
     # Default behavior (run basic scans)
     if not (args.geo or args.whois or args.dns or args.port or args.abuseIPDB or args.all):
-        print(f"{Color.YELLOW}:: No flags provided. Running Basic Scan (Geo, DNS, WHOIS)...{Color.RESET}\n")
+        print(f"{Color.YELLOW_BRIGHT}:: No flags provided. Running Basic Scan (Geo, DNS, WHOIS)...{Color.RESET}\n")
         args.geo = True
         args.whois = True
         args.dns = True
 
     user_input = args.target
 
-    # Logic to seperate IP from domain for different lookup types
+    # Logic to separate IP from domain for different lookup types
     if await is_ip(user_input):
         print(f"{Color.GREEN}Scanning {user_input}{Color.RESET}\n")
         target_ip = user_input
@@ -241,7 +241,7 @@ async def main():
             print(f"{Color.RED}Invalid Domain.{Color.RESET}")
             sys.exit(1)
 
-    # If -a is used run everything
+    # If -all is used run everything
     if args.all:
         results = await asyncio.gather(whois_lookup(target_ip), dns_lookup(target_domain), geo_lookup(target_ip), abuseipdb_lookup(target_ip), scan_common_port(target_ip))
         print("\n".join(results))
