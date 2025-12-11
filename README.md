@@ -8,7 +8,7 @@ Built with Python's `asyncio` and `aiohttp`, it performs multiple scans concurre
 
 * **Asynchronous Execution:** Leverages non-blocking I/O to perform all scans in parallel.
 * **Geolocation:** Retrieves precise location data (City, Region, Country, Coordinates).
-* **WHOIS Lookup:** Fetches ISP, Organization, and location details.
+* **WHOIS Lookup:** Fetches ISP, Organization, and ASN details.
 * **DNS Enumeration:** Resolves common DNS records (A, MX, NS, TXT) for domains.
 * **Reputation Check:** Integrates with **AbuseIPDB** to check if the target is blacklisted or malicious.
 * **Port Scanner:** Fast TCP connect scan for the most common 100+ ports using semaphores to prevent congestion.
