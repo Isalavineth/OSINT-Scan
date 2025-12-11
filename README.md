@@ -73,6 +73,10 @@ options:
 
 ## Screenshots
 
+![OSINTScan](Screenshots/screenshot1.png)
+![OSINTScan](Screenshots/screenshot2.png)
+![OSINTScan](Screenshots/screenshot3.png)
+
 ## Disclaimer
 
 This tool is designed for educational purposes and authorized security assessments only. Do not use this tool on networks or systems you do not have permission to scan. The author is not responsible for any misuse.
